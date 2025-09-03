@@ -1,0 +1,35 @@
+-- Courses Table
+CREATE TABLE Course (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    CourseTitle VARCHAR(200) NOT NULL
+);
+
+-- Students Table
+CREATE TABLE Student (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    StudentName VARCHAR(100) NULL,
+    Email VARCHAR(150) UNIQUE NULL
+);
+
+-- Meeting Table
+CREATE TABLE Meeting (
+    ID INT PRIMARY KEY IDENTITY(1,1),
+    CourseID INT NOT NULL,
+    MeetingDate DATE NULL,
+    StartTime TIME NULL,
+    EndTime TIME NULL,
+
+    FOREIGN KEY (CourseID) REFERENCES Course(ID)
+);
+
+-- Attendance Table
+CREATE TABLE Attendance (
+    AttendanceID INT PRIMARY KEY IDENTITY(1,1), -- surrogate key
+    MeetingID INT NOT NULL,
+    StudentID INT NULL,
+    ScanTime DATETIME NULL,
+    Note VARCHAR(255) NULL,
+
+    FOREIGN KEY (MeetingID) REFERENCES Meeting(ID),
+    FOREIGN KEY (StudentID) REFERENCES Student(ID)
+);
