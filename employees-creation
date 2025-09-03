@@ -1,0 +1,160 @@
+CREATE TABLE dbo.Department
+(
+    DepartmentID   INT IDENTITY(1,1) PRIMARY KEY,
+    DepartmentName NVARCHAR(100) NOT NULL,
+    DepartmentCode NVARCHAR(10)  NOT NULL,   -- ENG/OPS/HR/HQ
+    CONSTRAINT UQ_Department_DepartmentCode UNIQUE (DepartmentCode)
+);
+
+CREATE TABLE dbo.Title
+(
+    TitleID INT IDENTITY(1,1) PRIMARY KEY,
+    Title   NVARCHAR(100) NOT NULL,
+    CONSTRAINT UQ_Title_Title UNIQUE (Title)
+);
+
+CREATE TABLE dbo.Employee
+(
+    EmpNo          INT            NOT NULL PRIMARY KEY,  -- from your sheet
+    DepartmentID   INT            NOT NULL,
+    TitleID        INT            NOT NULL,
+    ManagerEmpNo   INT            NULL,                  -- self-FK (manager)
+    EmployeeName   NVARCHAR(100)  NOT NULL,
+    Email          NVARCHAR(255)  NOT NULL,
+    HireDate       DATE           NOT NULL,
+
+    CONSTRAINT FK_Emp_Department FOREIGN KEY (DepartmentID)
+        REFERENCES dbo.Department(DepartmentID),
+
+    CONSTRAINT FK_Emp_Title FOREIGN KEY (TitleID)
+        REFERENCES dbo.Title(TitleID),
+
+    CONSTRAINT FK_Emp_Manager FOREIGN KEY (ManagerEmpNo)
+        REFERENCES dbo.Employee(EmpNo),
+
+    CONSTRAINT UQ_Employee_Email UNIQUE (Email),
+
+    -- Helpful sanity check: nobody manages themself
+    CONSTRAINT CK_Emp_NotOwnManager CHECK (ManagerEmpNo IS NULL OR ManagerEmpNo <> EmpNo)
+);
+
+MERGE dbo.Department AS d
+USING (VALUES
+    (N'Executive',        N'HQ'),
+    (N'Engineering',      N'ENG'),
+    (N'Operations',       N'OPS'),
+    (N'Human Resources',  N'HR')
+) AS s(DepartmentName, DepartmentCode)
+ON d.DepartmentCode = s.DepartmentCode
+WHEN NOT MATCHED THEN
+    INSERT (DepartmentName, DepartmentCode) VALUES (s.DepartmentName, s.DepartmentCode);
+
+MERGE dbo.Title AS t
+USING (VALUES
+    (N'Chief Executive Officer'),
+    (N'Director of Engineering'),
+    (N'Operations Analyst'),
+    (N'Engineering Manager'),
+    (N'Software Engineer'),
+    (N'Operations Manager'),
+    (N'Data Scientist'),
+    (N'HR Specialist')
+) AS s(Title)
+ON t.Title = s.Title
+WHEN NOT MATCHED THEN
+    INSERT (Title) VALUES (s.Title);
+
+DECLARE @ENG INT = (SELECT DepartmentID FROM dbo.Department WHERE DepartmentCode = N'ENG');
+DECLARE @OPS INT = (SELECT DepartmentID FROM dbo.Department WHERE DepartmentCode = N'OPS');
+DECLARE @HR  INT = (SELECT DepartmentID FROM dbo.Department WHERE DepartmentCode = N'HR');
+DECLARE @HQ  INT = (SELECT DepartmentID FROM dbo.Department WHERE DepartmentCode = N'HQ');
+
+DECLARE @CEO    INT = (SELECT TitleID FROM dbo.Title WHERE Title = N'Chief Executive Officer');
+DECLARE @DirEng INT = (SELECT TitleID FROM dbo.Title WHERE Title = N'Director of Engineering');
+DECLARE @OpsAnl INT = (SELECT TitleID FROM dbo.Title WHERE Title = N'Operations Analyst');
+DECLARE @EngMgr INT = (SELECT TitleID FROM dbo.Title WHERE Title = N'Engineering Manager');
+DECLARE @SWE    INT = (SELECT TitleID FROM dbo.Title WHERE Title = N'Software Engineer');
+DECLARE @OpsMgr INT = (SELECT TitleID FROM dbo.Title WHERE Title = N'Operations Manager');
+DECLARE @DS     INT = (SELECT TitleID FROM dbo.Title WHERE Title = N'Data Scientist');
+DECLARE @HRSpec INT = (SELECT TitleID FROM dbo.Title WHERE Title = N'HR Specialist');
+
+
+INSERT dbo.Employee (EmpNo, DepartmentID, TitleID, ManagerEmpNo, EmployeeName, Email, HireDate) VALUES
+(100, @HQ,  @CEO,    NULL, N'Emma Watson',        N'ewatson@company.example',    '2020-01-15'),
+(110, @ENG, @DirEng, NULL, N'Chris Hemsworth',    N'chemsworth@company.example', '2021-03-12'),
+(120, @OPS, @OpsAnl, NULL, N'Scarlett Johansson', N'sjohansson@company.example', '2021-05-01'),
+(130, @ENG, @EngMgr, NULL, N'Tom Holland',        N'tholland@company.example',   '2022-01-10'),
+(140, @ENG, @SWE,    NULL, N'Taylor Swift',       N'tswift@company.example',     '2023-02-20'),
+(150, @ENG, @SWE,    NULL, N'Mickey Mouse',       N'mmouse@company.example',     '2024-06-01'),
+(160, @OPS, @OpsMgr, NULL, N'Donald Duck',        N'dduck@company.example',      '2022-08-18'),
+(170, @OPS, @OpsAnl, NULL, N'Judy Hopps',         N'jhopps@company.example',     '2023-09-05'),
+(180, @ENG, @DS,     NULL, N'Nick Wilde',         N'nwilde@company.example',     '2024-03-25'),
+(190, @HR,  @HRSpec, NULL, N'Mirabel Madrigal',   N'mmadrigal@company.example',  '2024-07-15');
+
+-- Set Managers
+WITH Mgr AS (
+    SELECT  EmpNo, EmployeeName
+    FROM    dbo.Employee
+)
+UPDATE e
+SET    e.ManagerEmpNo = m.EmpNo
+FROM   dbo.Employee e
+JOIN   Mgr m
+       ON e.EmployeeName IN (N'Chris Hemsworth', N'Scarlett Johansson')
+       AND m.EmployeeName = N'Emma Watson';
+
+;WITH Mgr AS (
+    SELECT EmpNo, EmployeeName FROM dbo.Employee
+)
+UPDATE e
+SET    e.ManagerEmpNo = m.EmpNo
+FROM   dbo.Employee e
+JOIN   Mgr m
+       ON e.EmployeeName = N'Tom Holland'
+      AND m.EmployeeName = N'Chris Hemsworth';
+
+;WITH Mgr AS (
+    SELECT EmpNo, EmployeeName FROM dbo.Employee
+)
+UPDATE e
+SET    e.ManagerEmpNo = m.EmpNo
+FROM   dbo.Employee e
+JOIN   Mgr m
+       ON e.EmployeeName IN (N'Taylor Swift', N'Mickey Mouse', N'Nick Wilde')
+      AND m.EmployeeName = N'Tom Holland';
+
+;WITH Mgr AS (
+    SELECT EmpNo, EmployeeName FROM dbo.Employee
+)
+UPDATE e
+SET    e.ManagerEmpNo = m.EmpNo
+FROM   dbo.Employee e
+JOIN   Mgr m
+       ON e.EmployeeName IN (N'Donald Duck', N'Judy Hopps')
+      AND m.EmployeeName = N'Scarlett Johansson';
+
+UPDATE e
+SET e.ManagerEmpNo = m.EmpNo
+FROM dbo.Employee e
+JOIN dbo.Employee m ON m.EmployeeName = N'Scarlett Johansson'
+WHERE e.EmployeeName = N'Mirabel Madrigal';
+
+-- Create View for original dataset
+CREATE VIEW dbo.vw_EmployeesFlat
+AS
+SELECT
+    e.EmpNo,
+    e.EmployeeName,
+    e.Email,
+    t.Title,
+    e.HireDate,
+    m.EmployeeName AS Manager,
+    d.DepartmentCode,
+    d.DepartmentName
+FROM dbo.Employee e
+JOIN dbo.Title      t ON t.TitleID      = e.TitleID
+JOIN dbo.Department d ON d.DepartmentID = e.DepartmentID
+LEFT JOIN dbo.Employee m ON m.EmpNo     = e.ManagerEmpNo;
+GO
+
+SELECT * FROM dbo.vw_EmployeesFlat ORDER BY EmpNo;
