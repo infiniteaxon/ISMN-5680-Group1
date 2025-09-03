@@ -1,0 +1,63 @@
+-- Q1
+
+WITH S AS (
+    SELECT gs.GameID, gs.TeamID, gs.Points,
+           opp.Points AS OppPoints
+    FROM dbo.GameSide gs
+    JOIN dbo.GameSide opp
+      ON opp.GameID = gs.GameID
+     AND opp.TeamID <> gs.TeamID
+),
+Agg AS (
+    SELECT TeamID,
+           SUM(CASE WHEN Points > OppPoints THEN 1 ELSE 0 END) AS Wins,
+           SUM(CASE WHEN Points < OppPoints THEN 1 ELSE 0 END) AS Losses,
+           SUM(CASE WHEN Points = OppPoints THEN 1 ELSE 0 END) AS Draws
+    FROM S
+    GROUP BY TeamID
+)
+SELECT t.TeamName,
+       COALESCE(a.Wins,0)   AS NumWins,
+       COALESCE(a.Losses,0) AS NumLoss,
+       COALESCE(a.Draws,0)  AS NumDraw
+FROM dbo.Team t
+LEFT JOIN Agg a ON a.TeamID = t.TeamID
+ORDER BY
+    -- win % (2 points per win, 1 per draw)
+    CAST((COALESCE(a.Wins,0)*2 + COALESCE(a.Draws,0)) AS float)
+    / NULLIF((COALESCE(a.Wins,0)+COALESCE(a.Losses,0)+COALESCE(a.Draws,0))*2,0) DESC,
+    COALESCE(a.Wins,0) DESC,
+    COALESCE(a.Losses,0) ASC,
+    t.TeamName;
+
+
+-- Q2
+
+WITH S AS (
+    SELECT gs.GameID, gs.TeamID, gs.Points,
+           opp.Points AS OppPoints
+    FROM dbo.GameSide gs
+    JOIN dbo.GameSide opp
+      ON opp.GameID = gs.GameID
+     AND opp.TeamID <> gs.TeamID
+),
+Agg AS (
+    SELECT TeamID,
+           SUM(Points)                AS PointsFor,
+           SUM(OppPoints)             AS PointsAgainst,
+           SUM(CASE WHEN Points > OppPoints THEN 1 ELSE 0 END) AS W,
+           SUM(CASE WHEN Points < OppPoints THEN 1 ELSE 0 END) AS L,
+           SUM(CASE WHEN Points = OppPoints THEN 1 ELSE 0 END) AS D
+    FROM S
+    GROUP BY TeamID
+)
+SELECT
+    t.TeamName + ' (' +
+        CAST(COALESCE(a.W,0) AS varchar(3)) + '-' +
+        CAST(COALESCE(a.L,0) AS varchar(3)) + '-' +
+        CAST(COALESCE(a.D,0) AS varchar(3)) + ')' AS Team,
+    COALESCE(a.PointsFor,0)     AS numPointsMade,
+    COALESCE(a.PointsAgainst,0) AS numPointsAgainst
+FROM dbo.Team t
+LEFT JOIN Agg a ON a.TeamID = t.TeamID
+ORDER BY (COALESCE(a.W,0)*2 + COALESCE(a.D,0)) DESC, t.TeamName;
