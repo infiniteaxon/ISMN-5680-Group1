@@ -1,0 +1,22 @@
+-- Q1
+SELECT d.DepartmentName,
+       COUNT(e.EmpNo) AS NumEmployees
+FROM dbo.Department d
+LEFT JOIN dbo.Employee e
+       ON d.DepartmentID = e.DepartmentID
+GROUP BY d.DepartmentName
+ORDER BY NumEmployees DESC;
+
+-- Q2
+SELECT 
+    m.EmployeeName   AS ManagerName,
+    m.Email          AS ManagerEmail,
+    e.EmployeeName   AS EmployeeName,
+    e.Email          AS EmployeeEmail,
+    d.DepartmentName AS Department
+FROM dbo.Employee e
+JOIN dbo.Department d
+     ON e.DepartmentID = d.DepartmentID
+LEFT JOIN dbo.Employee m
+     ON e.ManagerEmpNo = m.EmpNo
+ORDER BY ManagerName, EmployeeName;
