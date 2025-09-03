@@ -1,0 +1,105 @@
+-- Creating Games
+-- 1) reference: teams
+CREATE TABLE dbo.Team (
+    TeamID     int IDENTITY(1,1) PRIMARY KEY,
+    TeamName   varchar(50) NOT NULL UNIQUE
+);
+
+-- 2) entity: games (only facts about the game itself)
+CREATE TABLE dbo.Game (
+    GameID     int IDENTITY(1,1) PRIMARY KEY,
+    GameDate   date NOT NULL
+);
+
+-- 3) fact: one row per team per game (no derived fields)
+CREATE TABLE dbo.GameSide (
+    GameID   int NOT NULL,
+    TeamID   int NOT NULL,
+    Points   int NOT NULL CHECK (Points >= 0),
+    CONSTRAINT PK_GameSide PRIMARY KEY (GameID, TeamID),
+    CONSTRAINT FK_GameSide_Game FOREIGN KEY (GameID) REFERENCES dbo.Game(GameID),
+    CONSTRAINT FK_GameSide_Team FOREIGN KEY (TeamID) REFERENCES dbo.Team(TeamID)
+);
+
+-- helpful (optional) constraint: exactly two teams play each game
+CREATE TRIGGER dbo.trg_GameSide_ExactlyTwo
+ON dbo.GameSide
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.GameSide
+        GROUP BY GameID
+        HAVING COUNT(*) NOT IN (0,2)
+    )
+    BEGIN
+        RAISERROR('Each game must have exactly 2 teams.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END
+END;
+GO
+
+-- helpful indexes
+CREATE INDEX IX_GameSide_Team ON dbo.GameSide(TeamID);
+CREATE INDEX IX_GameSide_Game ON dbo.GameSide(GameID);
+
+
+
+-- Inserting Games Data
+INSERT dbo.Team(TeamName) VALUES
+('Tigers'),('Lions'),('Bears'),('Zebras'),('Hippos'),('Elephants');
+
+INSERT dbo.Game(GameDate) VALUES
+('2025-09-01'),('2025-09-01'),('2025-09-01'),
+('2025-09-08'),('2025-09-08'),('2025-09-08'),
+('2025-09-15'),('2025-09-15'),('2025-09-15');
+
+-- helper
+DECLARE @t TABLE (TeamName varchar(50), TeamID int);
+INSERT @t SELECT TeamName, TeamID FROM dbo.Team;
+
+-- G1: 9/1 Tigers 3 – Lions 1
+INSERT dbo.GameSide(GameID,TeamID,Points)
+SELECT 1,(SELECT TeamID FROM @t WHERE TeamName='Tigers'),3 UNION ALL
+SELECT 1,(SELECT TeamID FROM @t WHERE TeamName='Lions' ),1;
+
+-- G2: 9/1 Bears 5 – Zebras 0
+INSERT dbo.GameSide
+SELECT 2,(SELECT TeamID FROM @t WHERE TeamName='Bears'),5 UNION ALL
+SELECT 2,(SELECT TeamID FROM @t WHERE TeamName='Zebras'),0;
+
+-- G3: 9/1 Hippos 0 – Elephants 1
+INSERT dbo.GameSide
+SELECT 3,(SELECT TeamID FROM @t WHERE TeamName='Hippos'),0 UNION ALL
+SELECT 3,(SELECT TeamID FROM @t WHERE TeamName='Elephants'),1;
+
+-- G4: 9/8 Tigers 5 – Bears 4
+INSERT dbo.GameSide
+SELECT 4,(SELECT TeamID FROM @t WHERE TeamName='Tigers'),5 UNION ALL
+SELECT 4,(SELECT TeamID FROM @t WHERE TeamName='Bears'),4;
+
+-- G5: 9/8 Lions 3 – Hippos 2
+INSERT dbo.GameSide
+SELECT 5,(SELECT TeamID FROM @t WHERE TeamName='Lions'),3 UNION ALL
+SELECT 5,(SELECT TeamID FROM @t WHERE TeamName='Hippos'),2;
+
+-- G6: 9/8 Zebras 3 – Elephants 1
+INSERT dbo.GameSide
+SELECT 6,(SELECT TeamID FROM @t WHERE TeamName='Zebras'),3 UNION ALL
+SELECT 6,(SELECT TeamID FROM @t WHERE TeamName='Elephants'),1;
+-- G7: 9/15 Tigers 1 – Hippos 0
+INSERT dbo.GameSide
+SELECT 7,(SELECT TeamID FROM @t WHERE TeamName='Tigers'),1 UNION ALL
+SELECT 7,(SELECT TeamID FROM @t WHERE TeamName='Hippos'),0;
+
+-- G8: 9/15 Bears 2 – Elephants 2 (draw)
+INSERT dbo.GameSide
+SELECT 8,(SELECT TeamID FROM @t WHERE TeamName='Bears'),2 UNION ALL
+SELECT 8,(SELECT TeamID FROM @t WHERE TeamName='Elephants'),2;
+
+-- G9: 9/15 Zebras 2 – Lions 1
+INSERT dbo.GameSide
+SELECT 9,(SELECT TeamID FROM @t WHERE TeamName='Zebras'),2 UNION ALL
+SELECT 9,(SELECT TeamID FROM @t WHERE TeamName='Lions'),1;
