@@ -1,0 +1,31 @@
+--Q1
+--Write a query that shows the number of students that attended each meeting date (count). Show courseTitle, Meeting Date, and Number of Students.
+SELECT 
+    c.CourseTitle,
+    m.MeetingDate,
+    COUNT(a.StudentID) AS 'StudentsInAttendance'
+FROM Meeting m
+JOIN Course c 
+    ON m.CourseID = c.ID
+LEFT JOIN Attendance a 
+    ON m.ID = a.MeetingID
+GROUP BY c.CourseTitle, m.MeetingDate
+ORDER BY m.MeetingDate, c.CourseTitle;
+
+--Q2
+--Write a query that shows how many students showed up late to a meeting, which meeting they were late, and how late. Show CourseTitle, MeetingDate, StudentName, and #minutes late.
+SELECT 
+    c.CourseTitle,
+    m.MeetingDate,
+    s.StudentName,
+    DATEDIFF(
+        MINUTE, 
+        CAST(m.MeetingDate AS DATETIME) + CAST(m.StartTime AS DATETIME), 
+        a.ScanTime
+    ) AS MinutesLate
+FROM Course c
+INNER JOIN Meeting m ON c.ID = m.CourseID
+INNER JOIN Attendance a ON m.ID = a.MeetingID
+INNER JOIN Student s ON a.StudentID = s.ID
+WHERE a.ScanTime > CAST(m.MeetingDate AS DATETIME) + CAST(m.StartTime AS DATETIME)
+ORDER BY m.MeetingDate, c.CourseTitle, s.StudentName;
